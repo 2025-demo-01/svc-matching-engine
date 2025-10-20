@@ -1,1 +1,7 @@
-
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: matching-engine-high
+value: 1000000000
+globalDefault: false
+description: "Matching engine hotpath scheduling priority"
