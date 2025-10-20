@@ -1,1 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matching-engine
+  labels:
+    app: matching-engine
+    service: matching-engine
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: matching-engine
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: matching-engine
+        service: matching-engine
+        env: prod
+        owner: trading
+      annotations:
+        # ServiceMesh / Telemetry / Prometheus scraping
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+        prometheus.io/path: /metrics
+        # 고성능 노드 스케줄러 힌트
+        # cpu-manager-policy=static (노드 설정)
+        # numa-aware scheduling은 node 라벨/토폴로지 매칭으로 유도
+    spec:
+      priorityClassName: matching-engine-high
+      nodeSelector:
+        eks.amazonaws.com/nodegroup: ll-match-ng   # 전용 노드그룹(label 예시)
+        node.kubernetes.io/instance-type: c7i.8xlarge
+      tolerations:
+        - key: "workload"
+          operator: "Equal"
+          value: "low-latency"
+          effect: "NoSchedule"
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: matching-engine
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: matching-engine
+                topologyKey: kubernetes.io/hostname
 
+      containers:
+        - name: matching-engine
+          image: registry.upx.exchange/exchange/matching-engine:v0.8.3
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 9100
+              name: metrics
+          env:
+            - name: ME_THREADS
+              value: "8"
+            - name: RUST_LOG
+              value: "info"
+          resources:
+            # Guaranteed QoS (요청=제한)으로 CFS 간섭 최소화
+            requests:
+              cpu: "4"
+              memory: "4Gi"
+              hugepages-2Mi: "512Mi"
+            limits:
+              cpu: "4"
+              memory: "4Gi"
+              hugepages-2Mi: "512Mi"
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: hugepage
+              mountPath: /dev/hugepages
+              readOnly: false
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh","-c","sleep 2"]  # 연결 드레인 여유
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: hugepage
+          emptyDir:
+            medium: HugePages
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      imagePullSecrets:
+        - name: registry-credentials  # platform-argocd/apps/secrets-sops.yaml 에서 제공(샘플 값 sophielog)
