@@ -161,3 +161,24 @@ let consumer: StreamConsumer<Ctx> = ClientConfig::new()
   .create_with_context(Ctx)?;
 // NOTE: rdkafka에서는 assign() 시점 처리, stream() 루프로도 가능
 
+use serde_json::json;
+
+async fn process_batch(...) -> Result<()> {
+  ...
+  if let Err(e) = db::insert_batch_raw(click, &rows).await {
+    let err_payload = json!({
+      "error": format!("{:?}", e),
+      "ts": now_ms(),
+      "batch_len": batch.len(),
+    }).to_string();
+    let _ = producer.send(
+      BaseRecord::to("trades.dlq")                     // [ADDED]
+        .payload(&err_payload)
+        .key("clickhouse-insert"),
+    );
+    return Err(e);
+  }
+  ...
+}
+
+
