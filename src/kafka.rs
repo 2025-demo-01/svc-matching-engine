@@ -144,3 +144,20 @@ async fn process_batch(
     producer.commit_transaction(Timeout::After(Duration::from_secs(10)))?; // [ADDED]
     Ok(())
 }
+
+use rdkafka::consumer::{Consumer, StreamConsumer, Rebalance};
+use rdkafka::ClientContext;
+
+struct Ctx; impl ClientContext for Ctx {}
+
+fn on_rebalance(reb: &Rebalance) {
+  eprintln!("rebalance: {:?}", reb); // [ADDED] 필요 시 pause/resume
+}
+
+let consumer: StreamConsumer<Ctx> = ClientConfig::new()
+  .set("bootstrap.servers", &cfg.kafka_brokers)
+  .set("group.id", "matching-engine")
+  .set("enable.auto.commit", "false")
+  .create_with_context(Ctx)?;
+// NOTE: rdkafka에서는 assign() 시점 처리, stream() 루프로도 가능
+
