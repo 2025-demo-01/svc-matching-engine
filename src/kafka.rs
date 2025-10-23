@@ -204,4 +204,11 @@ prod_cfg
 let producer = prod_cfg.create::<rdkafka::producer::BaseProducer>()?;
 
 
+producer.send(
+  BaseRecord::to(&cfg.output_topic)
+    .payload(&tjson)
+    .key(&t.trade_id)
+    .headers(OwnedHeaders::new().add("schema-version","v1"))  // [ADDED]
+)?;
+
 
