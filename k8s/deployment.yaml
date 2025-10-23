@@ -42,6 +42,20 @@ spec:
           image: ghcr.io/2025-demo-01/svc-matching-engine:0.1.0
           ports: [ { name: metrics, containerPort: 9090 } ]
           env:
+            - name: KAFKA_SASL_USER                 # [ADDED]
+              valueFrom: { secretKeyRef: { name: matching-secret, key: KAFKA_USERNAME } }
+            - name: KAFKA_SASL_PASS                 # [ADDED]
+              valueFrom: { secretKeyRef: { name: matching-secret, key: KAFKA_PASSWORD } }
+          volumeMounts:
+            - name: kafka-ca
+              mountPath: /etc/kafka/ca
+          volumes:
+            - name: kafka-ca
+              secret:
+                secretName: matching-secret
+                items:
+                  - key: KAFKA_CA_CRT
+                    path: ca.crt
             - { name: KAFKA_BROKERS, valueFrom: { secretKeyRef: { name: kafka-secret, key: brokers } } }
             - { name: CLICKHOUSE_URL, valueFrom: { secretKeyRef: { name: clickhouse-secret, key: url } } }
             - { name: BATCH_SIZE, value: "500" }                 # [ADDED]
