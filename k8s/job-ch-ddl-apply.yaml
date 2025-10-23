@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ch-ddl-apply
+  namespace: trading
+  annotations:
+    argocd.argoproj.io/sync-wave: "38"   # engine(40)보다 먼저
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: ch-client
+        image: curlimages/curl:8.9.1
+        env:
+          - name: CLICKHOUSE_URL
+            valueFrom: { secretKeyRef: { name: clickhouse-secret, key: url } }
+        command: ["/bin/sh","-c"]
+        args:
+          - |
+            set -e
+            for f in /ddl/*.sql; do
+              echo "Applying $f"
+              curl -sS "$CLICKHOUSE_URL" --data-binary "@$f"
+            done
+        volumeMounts:
+          - name: ddl
+            mountPath: /ddl
+      volumes:
+        - name: ddl
+          configMap:
+            name: ch-ddl
+            items: [{ key: 01_trades.sql, path: 01_trades.sql }]
