@@ -38,7 +38,7 @@ spec:
                     values: ["svc-matching-engine"]
               topologyKey: kubernetes.io/hostname
       containers:
-        - name: app
+        - name: POD_NAME  # [이름짓는게 힘들다]
           image: ghcr.io/2025-demo-01/svc-matching-engine:0.1.0
           ports: [ { name: metrics, containerPort: 9090 } ]
           env:
