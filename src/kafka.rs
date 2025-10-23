@@ -13,15 +13,19 @@ use crate::{matching::*, db, metrics::*, util::*, config::Config};
 use clickhouse::Client as ChClient;
 
 pub async fn run_loop(cfg: &Config) -> Result<()> {
-    // Consumer (manual commit)
-    let consumer: StreamConsumer = ClientConfig::new()
-        .set("bootstrap.servers", &cfg.kafka_brokers)
-        .set("group.id", "matching-engine")
-        .set("enable.auto.commit", "false")
-        .set("max.partition.fetch.bytes", "1048576")
-        .set("fetch.min.bytes", "65536")
-        .set("fetch.wait.max.ms", "20")
-        .create()?;
+    let tx_id = format!(
+      "matching-engine-tx-{}",
+      std::env::var("POD_NAME").unwrap_or_else(|_| "dev".into())
+    ); 
+
+    let producer: rdkafka::producer::BaseProducer = ClientConfig::new()
+      .set("bootstrap.servers", &cfg.kafka_brokers)
+      .set("enable.idempotence", "true")
+      .set("acks", "all")
+      .set("retries", "10")
+      .set("request.timeout.ms", "5000")
+      .set("transactional.id", &tx_id)   // [CHANGED]
+      .create()?;
     consumer.subscribe(&[&cfg.input_topic])?;
 
     // Producer with transactional.id for EOS
