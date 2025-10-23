@@ -1,0 +1,2 @@
+- 목적: orders.in 유입부터 trades.out 배출까지 p95 측정
+- 방법: k6 produce + consumer offset watch + Prometheus query
