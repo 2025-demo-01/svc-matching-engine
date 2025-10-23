@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: svc-matching-engine
+  namespace: trading
+  annotations:
+    argocd.argoproj.io/sync-wave: "40"
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: svc-matching-engine } }
+  template:
+    metadata:
+      labels: { app: svc-matching-engine }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/2025-demo-01/svc-matching-engine:0.1.0
+          ports:
+            - { name: metrics, containerPort: 9090 }
+          env:
+            - { name: KAFKA_BROKERS, valueFrom: { secretKeyRef: { name: kafka-secret, key: brokers } } }
+            - { name: CLICKHOUSE_URL, value: "http://clickhouse:8123" }
