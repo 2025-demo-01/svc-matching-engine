@@ -10,16 +10,50 @@ spec:
   selector: { matchLabels: { app: svc-matching-engine } }
   template:
     metadata:
-      labels: { app: svc-matching-engine }
+      labels: { app: svc-matching-engine, hotpath: "true" }
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
+        # NUMA/CPU 매니저(static) 사용하려면 노드 설정 필요. Pod는 Guaranteed QoS로 힌트 제공.
     spec:
+      priorityClassName: hotpath-high         # [ADDED]
+      nodeSelector: { nodepool: perf }        # [ADDED] 전용 노드풀(예시)
+      tolerations:                            # [ADDED] 전용 노드 스케줄 허용
+        - key: "workload"
+          operator: "Equal"
+          value: "hotpath"
+          effect: "NoSchedule"
+      topologySpreadConstraints:              # [ADDED] 존 분산
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector: { matchLabels: { app: svc-matching-engine } }
+      affinity:                               # [ADDED] 동일 노드 집적 피함
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values: ["svc-matching-engine"]
+              topologyKey: kubernetes.io/hostname
       containers:
         - name: app
           image: ghcr.io/2025-demo-01/svc-matching-engine:0.1.0
-          ports:
-            - { name: metrics, containerPort: 9090 }
+          ports: [ { name: metrics, containerPort: 9090 } ]
           env:
             - { name: KAFKA_BROKERS, valueFrom: { secretKeyRef: { name: kafka-secret, key: brokers } } }
-            - { name: CLICKHOUSE_URL, value: "http://clickhouse:8123" }
+            - { name: CLICKHOUSE_URL, valueFrom: { secretKeyRef: { name: clickhouse-secret, key: url } } }
+            - { name: BATCH_SIZE, value: "500" }                 # [ADDED]
+            - { name: BATCH_WINDOW_MS, value: "50" }             # [ADDED]
+            - { name: ORDERS_IN_TOPIC, value: "orders.in" }
+            - { name: TRADES_OUT_TOPIC, value: "trades.out" }
+          resources:                                             # [ADDED] Guaranteed QoS → 고정 CPU
+            requests: { cpu: "2", memory: "1Gi" }
+            limits:   { cpu: "2", memory: "1Gi" }
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            seccompProfile: { type: RuntimeDefault }
+            capabilities: { drop: ["ALL"] }
