@@ -181,4 +181,13 @@ async fn process_batch(...) -> Result<()> {
   ...
 }
 
+let mut cur_max_batch = max_batch; // [ADDED]
+...
+if let Err(e) = process_batch(...).await {
+  cur_max_batch = (cur_max_batch / 2).max(50);     // [ADDED] 반감
+} else {
+  cur_max_batch = (cur_max_batch + 50).min(max_batch);  // [ADDED] 회복
+}
+
+
 
