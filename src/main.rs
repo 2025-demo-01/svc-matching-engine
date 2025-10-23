@@ -42,3 +42,25 @@ async fn main() -> Result<()> {
     }
     Ok(())
 }
+
+
+use rdkafka::producer::BaseProducer;
+static mut GLOBAL_PRODUCER: Option<BaseProducer> = None;   // [ADDED] (간단 예시)
+
+#[tokio::main]
+async fn main() -> Result<()> {
+  ...
+  tokio::select! {
+    _ = kafka::run_loop(&cfg) => {},
+    _ = signal::ctrl_c() => {
+      unsafe {
+        if let Some(p) = &GLOBAL_PRODUCER {
+          let _ = p.abort_transaction(Timeout::After(Duration::from_secs(3)));  // [ADDED]
+        }
+      }
+      eprintln!("shutting down");
+    }
+  }
+  Ok(())
+}
+
