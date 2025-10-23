@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-matching
+  namespace: trading
+  labels:
+    grafana_dashboard: "1"           # sidecar dashboards: enabled
+data:
+  matching-engine.json: |
+    { "title": "Matching Engine — Hotpath", "panels": [ ... 동일내용 ... ] }
