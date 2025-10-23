@@ -190,4 +190,18 @@ if let Err(e) = process_batch(...).await {
 }
 
 
+let mut prod_cfg = ClientConfig::new();
+prod_cfg
+  .set("bootstrap.servers", &cfg.kafka_brokers)
+  .set("security.protocol", "SASL_SSL")              // [ADDED]
+  .set("ssl.ca.location", "/etc/kafka/ca/ca.crt")    // [ADDED]
+  .set("sasl.mechanisms", "SCRAM-SHA-512")           // [ADDED]
+  .set("sasl.username", std::env::var("KAFKA_SASL_USER").unwrap_or_default())
+  .set("sasl.password", std::env::var("KAFKA_SASL_PASS").unwrap_or_default())
+  .set("enable.idempotence", "true")
+  .set("acks", "all")
+  .set("transactional.id", &tx_id);
+let producer = prod_cfg.create::<rdkafka::producer::BaseProducer>()?;
+
+
 
