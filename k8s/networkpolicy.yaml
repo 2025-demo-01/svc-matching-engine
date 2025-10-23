@@ -1,19 +1,19 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: matching-engine-deny-by-default
+  name: matching-engine-egress
   namespace: trading
 spec:
   podSelector: { matchLabels: { app: svc-matching-engine } }
-  policyTypes: ["Ingress","Egress"]
+  policyTypes: ["Egress","Ingress"]
   ingress:
     - from:
-        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: trading } } # 내부 호출만
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: trading } }
       ports: [{ protocol: TCP, port: 9090 }]
   egress:
-    - to:
-        - ipBlock: { cidr: 10.0.0.0/16 }  # MSK
+    - to:                                           #  MSK CIDR
+        - ipBlock: { cidr: 10.20.0.0/16 }          # ← 환경 CIDR로 교체
       ports: [{ protocol: TCP, port: 9094 }]
-    - to:
-        - ipBlock: { cidr: 10.1.0.0/16 }  # ClickHouse
+    - to:                                           #  ClickHouse CIDR
+        - ipBlock: { cidr: 10.30.0.0/16 }          # ← 환경 CIDR로 교체
       ports: [{ protocol: TCP, port: 8123 }]
